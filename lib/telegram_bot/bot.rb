@@ -41,7 +41,8 @@ module TelegramBot
     def send_message(out_message)
       response = request(:sendMessage, out_message.to_h)
       logger.info "sending message: #{out_message.text.inspect} to #{out_message.chat_friendly_name}"
-      Message.new(response.result)
+
+      response.message
     end
 
     private
@@ -51,7 +52,22 @@ module TelegramBot
     def request(action, query = {})
       path = "/bot#{@token}/#{action}"
       res = @connection.post(path: path, query: query)
-      ApiResponse.new(res)
+
+      representer =
+        case action
+        when :getUpdates
+          GetUpdatesResponseRepresenter
+        when :sendMessage
+          SendMessageResponseRepresenter
+        when :getMe
+          GetMeResponseRepresenter
+        else
+          throw "Don't know what to do with :#{action} action"
+        end
+
+      api_response = representer.new(OpenStruct.new).from_json(res.body)
+
+      api_response
     end
 
     def get_last_updates(opts = {})
